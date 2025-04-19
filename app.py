@@ -1,6 +1,5 @@
 import streamlit as st
 import speedtest
-from ping3 import ping
 import statistics
 import pandas as pd
 import os
@@ -11,29 +10,17 @@ import plotly.graph_objects as go
 def get_speeds():
     try:
         st_obj = speedtest.Speedtest()
-        st_obj.get_best_server()
+        best_server = st_obj.get_best_server()
         download_speed = st_obj.download() / 1_000_000  
         upload_speed = st_obj.upload() / 1_000_000
-        return round(download_speed, 2), round(upload_speed, 2)
+        latency = round(best_server['latency'], 2)
+        return round(download_speed, 2), round(upload_speed, 2), latency
     except:
-        return None, None
+        return None, None, None
 
-def get_ping_jitter(host="8.8.8.8", count=10):
-    pings = []
-    for _ in range(count):
-        latency = ping(host, timeout=2)
-        if latency is not None:
-            pings.append(latency * 1000)  
-    if len(pings) >= 2:
-        avg_ping = round(statistics.mean(pings), 2)
-        jitter = round(statistics.stdev(pings), 2)
-    elif len(pings) == 1:
-        avg_ping = round(pings[0], 2)
-        jitter = 0.0
-    else:
-        avg_ping = None
-        jitter = None
-    return avg_ping, jitter
+def get_ping_jitter(latency):
+    # Use latency from Speedtest server as ping; jitter not available
+    return latency, None
 
 def get_device_id():
     return socket.gethostname()  
@@ -84,8 +71,8 @@ st.markdown("Click the button below to begin the test. It may take a few seconds
 
 if st.button("🔍 Start Speed Test"):
     with st.spinner("Running test..."):
-        download_speed, upload_speed = get_speeds()
-        ping_val, jitter = get_ping_jitter()
+        download_speed, upload_speed, latency = get_speeds()
+        ping_val, jitter = get_ping_jitter(latency)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_results(device_id, timestamp, download_speed, upload_speed, ping_val, jitter)
 
@@ -99,7 +86,7 @@ if st.button("🔍 Start Speed Test"):
         st.metric("📶 Ping", f"{ping_val} ms" if ping_val is not None else "Error")
     with col2:
         st.metric("📥 Download Speed", f"{download_speed} Mbps" if download_speed else "Error")
-        st.metric("🔄 Jitter", f"{jitter} ms" if jitter is not None else "Error")
+        st.metric("🔄 Jitter", f"{jitter} ms" if jitter is not None else "N/A")
 
 st.markdown("### 📈 Speed History")
 
